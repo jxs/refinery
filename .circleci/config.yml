@@ -27,7 +27,7 @@ jobs:
       - checkout
       - run: rustup component add clippy --toolchain 1.34.1-x86_64-unknown-linux-gnu
       - run: RUSTFLAGS="-D warnings" cargo build -p refinery --all-features
-      - run: cargo test -p refinery-macros
+      - run: cargo test -p refinery-macros -p refinery-migrations
       - run: RUSTFLAGS="-D warnings" cargo clippy -p refinery -p refinery-migrations -p refinery-macros
   test-sqlite:
     docker:

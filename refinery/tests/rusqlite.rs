@@ -1,6 +1,7 @@
 mod rusqlite {
     use chrono::{DateTime, Local};
-    use refinery::{Error, Migrate as _, Migration};
+    use refinery::{migrate_from_config, Config, ConfigDbType, Error, Migrate as _, Migration};
+    use std::fs::File;
     use ttrusqlite::{Connection, NO_PARAMS};
 
     mod embedded {
@@ -16,6 +17,34 @@ mod rusqlite {
     mod missing {
         use refinery::embed_migrations;
         embed_migrations!("refinery/tests/sql_migrations_missing");
+    }
+
+    fn get_migrations() -> Vec<Migration> {
+        let migration1 = Migration::from_filename(
+            "V1__initial.sql",
+            include_str!("./sql_migrations/V1__initial.sql"),
+        )
+        .unwrap();
+
+        let migration2 = Migration::from_filename(
+            "V2__add_cars_table",
+            include_str!("./sql_migrations/V2__add_cars_table.sql"),
+        )
+        .unwrap();
+
+        let migration3 = Migration::from_filename(
+            "V3__add_brand_to_cars_table",
+            include_str!("./sql_migrations/V3__add_brand_to_cars_table.sql"),
+        )
+        .unwrap();
+
+        let migration4 = Migration::from_filename(
+            "V4__add_year_field_to_cars",
+            &"ALTER TABLE cars ADD year INTEGER;",
+        )
+        .unwrap();
+
+        vec![migration1, migration2, migration3, migration4]
     }
 
     #[test]
@@ -236,36 +265,10 @@ mod rusqlite {
 
         embedded::migrations::runner().run(&mut conn).unwrap();
 
-        let migration1 = Migration::from_filename(
-            "V1__initial.sql",
-            include_str!("./sql_migrations/V1__initial.sql"),
-        )
-        .unwrap();
+        let migrations = get_migrations();
 
-        let migration2 = Migration::from_filename(
-            "V2__add_cars_table",
-            include_str!("./sql_migrations/V2__add_cars_table.sql"),
-        )
-        .unwrap();
-
-        let migration3 = Migration::from_filename(
-            "V3__add_brand_to_cars_table",
-            include_str!("./sql_migrations/V3__add_brand_to_cars_table.sql"),
-        )
-        .unwrap();
-
-        let migration4 = Migration::from_filename(
-            "V4__add_year_field_to_cars",
-            &"ALTER TABLE cars ADD year INTEGER;",
-        )
-        .unwrap();
-        let mchecksum = migration4.checksum();
-        conn.migrate(
-            &[migration1, migration2, migration3, migration4],
-            true,
-            true,
-        )
-        .unwrap();
+        let mchecksum = migrations[3].checksum();
+        conn.migrate(&migrations, true, true).unwrap();
 
         let (current, checksum): (u32, String) = conn
             .query_row(
@@ -356,5 +359,14 @@ mod rusqlite {
             }
             _ => panic!("failed test"),
         }
+    }
+
+    #[test]
+    fn migrates_from_config() {
+        let _db = File::create("db.sql");
+        let config = Config::new(ConfigDbType::Sqlite, "./db.sql");
+        let migrations = get_migrations();
+        migrate_from_config(&config, false, true, true, &migrations).unwrap();
+        std::fs::remove_file("db.sql").unwrap();
     }
 }
