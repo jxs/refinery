@@ -81,7 +81,6 @@ pub fn find_migrations_filenames(
     Ok(file_paths)
 }
 
-//migrates given a config file, function is defined here instead of refinery_cli because of rust trait constrains
 cfg_if! {
     if #[cfg(all(feature = "mysql", feature = "postgres", feature = "rusqlite"))] {
         use crate::{Config, ConfigDbType, Migration, WrapMigrationError, Runner};
